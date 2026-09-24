@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>คำนวณอายุ / ตรวจเลขบัตรประชาชน</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#eceff5;--card:#ffffff;--field:#f3f5fa;--ink:#0d1728;--muted:#5b6679;--line:#d9dee8;
+  --pri:#2b4de0;--on-pri:#ffffff;--pri-soft:#e8edff;
+  --ok:#0b7a55;--ok-soft:#dff5ec;--bad:#c62a3a;--bad-soft:#fde8ea;
+  --shadow:0 12px 32px rgba(13,23,40,.07);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b1020;--card:#141b2f;--field:#0f1526;--ink:#eaf0ff;--muted:#97a3bd;--line:#26314d;
+    --pri:#7c95ff;--on-pri:#0b1020;--pri-soft:#1c2645;
+    --ok:#4fd8a3;--ok-soft:#0f2d24;--bad:#ff8b97;--bad-soft:#331820;
+    --shadow:0 12px 32px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b1020;--card:#141b2f;--field:#0f1526;--ink:#eaf0ff;--muted:#97a3bd;--line:#26314d;
+  --pri:#7c95ff;--on-pri:#0b1020;--pri-soft:#1c2645;
+  --ok:#4fd8a3;--ok-soft:#0f2d24;--bad:#ff8b97;--bad-soft:#331820;
+  --shadow:0 12px 32px rgba(0,0,0,.35);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Anuphan","Noto Sans Thai","Sarabun",Tahoma,system-ui,sans-serif;
+  line-height:1.55;-webkit-font-smoothing:antialiased;
+}
+main{max-width:980px;margin:0 auto;padding:40px 20px 56px}
+
+.head{display:flex;gap:16px;align-items:center;margin-bottom:28px}
+.mark{flex:none;width:48px;height:48px;border-radius:14px;background:var(--pri);color:var(--on-pri);display:grid;place-items:center}
+h1{font-size:clamp(1.4rem,3.6vw,1.9rem);line-height:1.2;margin:0;font-weight:700;letter-spacing:-.01em}
+.sub{margin:4px 0 0;color:var(--muted);font-size:.95rem}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:26px;box-shadow:var(--shadow)}
+h2{font-size:1.15rem;margin:0 0 2px;font-weight:600}
+.desc{margin:0 0 20px;color:var(--muted);font-size:.9rem}
+
+label{display:block;font-size:.85rem;font-weight:500;color:var(--muted);margin-bottom:8px}
+.row{display:flex;gap:10px}
+input{
+  flex:1;min-width:0;height:52px;padding:0 16px;font:inherit;font-size:1.15rem;font-weight:500;
+  font-variant-numeric:tabular-nums;letter-spacing:.05em;color:var(--ink);
+  background:var(--field);border:1.5px solid transparent;border-radius:14px;
+  transition:border-color .15s,background .15s;
+}
+input::placeholder{color:var(--muted);opacity:.6;letter-spacing:0;font-weight:400}
+input:focus{outline:none;border-color:var(--pri);background:var(--card)}
+button{
+  height:52px;padding:0 20px;border:0;border-radius:14px;background:var(--pri);color:var(--on-pri);
+  font:inherit;font-weight:600;cursor:pointer;white-space:nowrap;transition:filter .15s,transform .1s;
+}
+button:hover{filter:brightness(1.08)}
+button:active{transform:scale(.97)}
+button:focus-visible{outline:3px solid var(--pri);outline-offset:2px}
+
+.out{margin-top:20px;display:none}
+.out.show{display:block}
+.err{padding:12px 14px;border-radius:12px;background:var(--bad-soft);color:var(--bad);font-size:.92rem}
+.meta{margin:14px 0 0;color:var(--muted);font-size:.88rem}
+
+/* age numerals */
+.age{display:grid;grid-template-columns:repeat(3,1fr);border-radius:16px;background:var(--pri-soft);overflow:hidden}
+.unit{padding:18px 8px 14px;text-align:center}
+.unit + .unit{border-left:1px solid var(--line)}
+.unit b{display:block;font-size:clamp(2.2rem,8vw,3.2rem);line-height:1.1;font-weight:700;color:var(--pri);font-variant-numeric:tabular-nums;animation:rise .4s cubic-bezier(.2,.8,.2,1) both}
+.unit:nth-child(2) b{animation-delay:.06s}
+.unit:nth-child(3) b{animation-delay:.12s}
+.unit span{font-size:.9rem;color:var(--muted)}
+
+/* id digits */
+.pill{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;font-weight:600;font-size:.95rem;margin-bottom:14px}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.digits{display:grid;grid-template-columns:1fr 4fr 5fr 2fr 1fr;gap:8px}
+.grp{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:3px}
+.cell{
+  aspect-ratio:3/4;display:grid;place-items:center;border-radius:8px;background:var(--field);
+  font-weight:600;font-size:clamp(.85rem,3.4vw,1.15rem);font-variant-numeric:tabular-nums;
+  animation:rise .35s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i) * 22ms);
+}
+.cell.ok{background:var(--ok);color:var(--card)}
+.cell.bad{background:var(--bad);color:var(--card)}
+.calc{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0 0;padding:0}
+.calc div{background:var(--field);border-radius:12px;padding:10px 12px}
+.calc dt{font-size:.78rem;color:var(--muted)}
+.calc dd{margin:0;font-size:1.05rem;font-weight:600;font-variant-numeric:tabular-nums}
+
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <header class="head">
+    <div class="mark" aria-hidden="true">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+    </div>
+    <div>
+      <h1>คำนวณอายุ และตรวจเลขบัตรประชาชน</h1>
+      <p class="sub">กรอกข้อมูล กดปุ่ม ได้ผลทันที ข้อมูลทั้งหมดประมวลผลในเครื่องของคุณ</p>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="card">
+      <h2>คำนวณอายุ</h2>
+      <p class="desc">กรอกวันเกิดเป็น DD/MM/YYYY รับได้ทั้ง พ.ศ. และ ค.ศ.</p>
+      <label for="dob">วันเกิด</label>
+      <div class="row">
+        <input id="dob" type="text" inputmode="numeric" maxlength="10" placeholder="20/09/2530" autocomplete="off">
+        <button type="button" id="btnAge">คำนวณอายุ</button>
+      </div>
+      <div id="ageOut" class="out" aria-live="polite"></div>
+    </section>
+
+    <section class="card">
+      <h2>ตรวจเลขบัตรประชาชน</h2>
+      <p class="desc">กรอกตัวเลข 13 หลักติดกัน ไม่ต้องใส่ขีด</p>
+      <label for="pid">เลขบัตรประชาชน</label>
+      <div class="row">
+        <input id="pid" type="text" inputmode="numeric" maxlength="13" placeholder="1101700230673" autocomplete="off">
+        <button type="button" id="btnId">ตรวจสอบ</button>
+      </div>
+      <div id="idOut" class="out" aria-live="polite"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+(function () {
+  var MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน",
+                "กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+  function $(id) { return document.getElementById(id); }
+  function put(el, html) { el.className = "out show"; el.innerHTML = html; }
+  function err(el, msg) { put(el, '<div class="err">' + msg + "</div>"); }
+
+  function isLeap(y) { return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0; }
+  function dim(y, m) { return [31, isLeap(y) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1]; }
+
+  function calcAge() {
+    var out = $("ageOut");
+    var mt = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec($("dob").value.trim());
+    if (!mt) { err(out, "รูปแบบไม่ถูกต้อง กรอกเป็น DD/MM/YYYY เช่น 20/09/2530"); return; }
+    var d = +mt[1], m = +mt[2], y = +mt[3];
+    if (y > 2400) y -= 543; // พ.ศ. -> ค.ศ.
+    if (y < 1 || m < 1 || m > 12 || d < 1 || d > dim(y, m)) {
+      err(out, "วันที่นี้ไม่มีอยู่จริง ตรวจสอบวัน เดือน และปีอีกครั้ง"); return;
+    }
+    var now = new Date(), ty = now.getFullYear(), tm = now.getMonth() + 1, td = now.getDate();
+    if (y > ty || (y === ty && (m > tm || (m === tm && d > td)))) {
+      err(out, "วันเกิดอยู่ในอนาคต ตรวจสอบปีอีกครั้ง"); return;
+    }
+    var yy = ty - y, mm = tm - m, dd = td - d;
+    if (dd < 0) { mm--; dd += tm === 1 ? dim(ty - 1, 12) : dim(ty, tm - 1); }
+    if (mm < 0) { yy--; mm += 12; }
+
+    put(out,
+      '<div class="age">' +
+        '<div class="unit"><b>' + yy + '</b><span>ปี</span></div>' +
+        '<div class="unit"><b>' + mm + '</b><span>เดือน</span></div>' +
+        '<div class="unit"><b>' + dd + '</b><span>วัน</span></div>' +
+      '</div>' +
+      '<p class="meta">เกิดวันที่ ' + d + " " + MONTHS[m - 1] + " พ.ศ. " + (y + 543) + " (ค.ศ. " + y + ")<br>" +
+      "นับถึงวันที่ " + td + " " + MONTHS[tm - 1] + " พ.ศ. " + (ty + 543) + "</p>");
+  }
+
+  function checkId() {
+    var out = $("idOut"), v = $("pid").value.trim();
+    if (!/^\d{13}$/.test(v)) {
+      err(out, "กรอกตัวเลข 13 หลักติดกัน (ตอนนี้กรอก " + v.length + " ตัว)"); return;
+    }
+    var sum = 0, i;
+    for (i = 0; i < 12; i++) sum += +v.charAt(i) * (13 - i);
+    var rem = sum % 11, expected = (11 - rem) % 10, actual = +v.charAt(12);
+    var good = expected === actual;
+
+    var sizes = [1, 4, 5, 2, 1], pos = 0, cells = "";
+    sizes.forEach(function (n) {
+      cells += '<div class="grp">';
+      for (var k = 0; k < n; k++, pos++) {
+        var cls = pos === 12 ? (good ? " ok" : " bad") : "";
+        cells += '<div class="cell' + cls + '" style="--i:' + pos + '">' + v.charAt(pos) + "</div>";
+      }
+      cells += "</div>";
+    });
+
+    put(out,
+      '<div class="pill ' + (good ? "ok" : "bad") + '">' + (good ? "? เลขบัตรถูกต้อง" : "? เลขบัตรไม่ถูกต้อง") + "</div>" +
+      '<div class="digits">' + cells + "</div>" +
+      '<dl class="calc">' +
+        "<div><dt>ผลรวม</dt><dd>" + sum + "</dd></div>" +
+        "<div><dt>เศษหาร 11</dt><dd>" + rem + "</dd></div>" +
+        "<div><dt>หลักที่ 13 ที่ถูกต้อง</dt><dd>" + expected + "</dd></div>" +
+      "</dl>");
+  }
+
+  $("btnAge").addEventListener("click", calcAge);
+  $("btnId").addEventListener("click", checkId);
+  $("dob").addEventListener("keydown", function (e) { if (e.key === "Enter") calcAge(); });
+  $("pid").addEventListener("keydown", function (e) { if (e.key === "Enter") checkId(); });
+})();
+</script>
+</body>
+</html>
